@@ -22,7 +22,7 @@ set(CMAKE_CXX_COMPILER "clang++")
 project(aeon C CXX)
 
 if (NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE "Debug" CACHE STRING
+    set(CMAKE_BUILD_TYPE "RelWithDebInfo" CACHE STRING
         "Choose the type of build, options are: Debug, Release, RelWithDebInfo and MinSizeRel"
         FORCE)
 endif()
@@ -44,6 +44,7 @@ add_definitions(-DBUILD_VERSION_MAJOR=${AEON_VERSION_MAJOR}
 option(ENABLE_AEON_SERVICE "Enable compilation of AEON Service" OFF)
 option(ENABLE_AEON_CLIENT "Enable compilation of AEON Client" ON)
 option(ENABLE_OPENFABRICS_CONNECTOR "Enable OpenFabrics connector for batch exchange between service and client" OFF)
+option(BUILD_OPENCV "Build Aeon with 3rd party OpenCV support" OFF)
 
 include(cmake/summary.cmake)
 
@@ -132,17 +133,87 @@ include_directories(${SOX_INCLUDE_DIRS})
 link_directories(${SOX_LIBRARY_DIRS})
 add_definitions(${SOX_CFLAGS_OTHERS})
 
-find_package(OpenCV REQUIRED)
+if (BUILD_OPENCV)
+    set(THIRD_PARTY_PATH "${CMAKE_BINARY_DIR}/3rdparty" CACHE STRING
+    "A path setting third party libraries download & build directories.")
 
-include_directories(${OpenCV_INCLUDE_DIRS})
-link_directories(${OpenCV_LIBRARY_DIRS})
+    SET(LIBJPEGTURBO_PROJECT        "libjpeg-turbo")
+    SET(LIBJPEGTURBO_SOURCES_DIR    ${THIRD_PARTY_PATH}/libjpeg-turbo)
+    SET(LIBJPEGTURBO_INSTALL_DIR    ${THIRD_PARTY_PATH}/install/libjpeg-turbo)
+    SET(LIBJPEGTURBO_INC_DIR        "${LIBJPEGTURBO_INSTALL_DIR}/include" CACHE PATH "libjpeg-turbo include directory." FORCE)
+    SET(LIBJPEGTURBO_LIB_DIR        "${LIBJPEGTURBO_INSTALL_DIR}/lib" CACHE PATH "libjpeg-turbo library directory." FORCE)
 
-# opecv_ts is for testing opencv. if it is left in the lib list then we get an error when
-# the unit test exits.
-# Centos like os:
-list(REMOVE_ITEM OpenCV_LIBRARIES "${OpenCV_LIB_DIR_OPT}/libopencv_ts.so")
-# Ubuntu like os:
-list(REMOVE_ITEM OpenCV_LIBRARIES opencv_ts)
+    SET(OPENCV_PROJECT        "opencv")
+    SET(OPENCV_SOURCES_DIR    ${THIRD_PARTY_PATH}/OpenCV)
+    SET(OPENCV_INSTALL_DIR    ${THIRD_PARTY_PATH}/install/OpenCV)
+    SET(OPENCV_INC_DIR        "${OPENCV_INSTALL_DIR}/include" CACHE PATH "OpenCV include directory." FORCE)
+    SET(OPENCV_LIB_DIR        "${OPENCV_INSTALL_DIR}/lib" CACHE PATH "OpenCV library directory." FORCE)
+
+    INCLUDE(ExternalProject)
+
+    ExternalProject_Add(
+    ${LIBJPEGTURBO_PROJECT}
+    GIT_REPOSITORY      "https://github.com/libjpeg-turbo/libjpeg-turbo.git"
+    PREFIX              ${LIBJPEGTURBO_SOURCES_DIR}
+    CMAKE_ARGS          -DCMAKE_INSTALL_PREFIX=${LIBJPEGTURBO_INSTALL_DIR}
+    CMAKE_ARGS          -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+    CMAKE_ARGS          -DENABLE_STATIC=TRUE
+    CMAKE_ARGS          -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+    CMAKE_ARGS          -DCMAKE_INSTALL_DEFAULT_LIBDIR=lib
+    )
+
+    SET(OpenCV_VERSION "3.4.7")
+
+    ExternalProject_Add(
+    ${OPENCV_PROJECT}
+    GIT_REPOSITORY      "https://github.com/opencv/opencv.git"
+    GIT_TAG             ${OpenCV_VERSION}
+    PREFIX              ${OPENCV_SOURCES_DIR}
+    CMAKE_ARGS          -DCMAKE_INSTALL_PREFIX=${OPENCV_INSTALL_DIR}
+    CMAKE_ARGS          -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+    CMAKE_ARGS          -DINSTALL_C_EXAMPLES=OFF
+    CMAKE_ARGS          -DINSTALL_PYTHON_EXAMPLES=OFF
+    CMAKE_ARGS          -DWITH_TBB=ON
+    CMAKE_ARGS          -DWITH_V4L=ON
+    CMAKE_ARGS          -DOPENCV_PYTHON3_INSTALL_PATH=$cwd/OpenCV-$cvVersion-py3/lib/python3.5/site-packages
+    CMAKE_ARGS          -DWITH_QT=OFF
+    CMAKE_ARGS          -DWITH_OPENGL=OFF
+    CMAKE_ARGS          -DBUILD_EXAMPLES=OFF
+    CMAKE_ARGS          -DWITH_CUDA=OFF
+    CMAKE_ARGS          -DOPENCV_FORCE_3RDPARTY_BUILD=OFF
+    CMAKE_ARGS          -DWITH_IPP=ON
+    CMAKE_ARGS          -DENABLE_AVX2=ON
+    CMAKE_ARGS          -DWITH_JPEG=ON
+    CMAKE_ARGS          -DBUILD_JPEG=OFF
+    CMAKE_ARGS          -DJPEG_INCLUDE_DIR=${LIBJPEGTURBO_INC_DIR}
+    CMAKE_ARGS          -DJPEG_LIBRARY=${LIBJPEGTURBO_LIB_DIR}/libjpeg.a
+    )
+
+    include_directories(${OPENCV_INC_DIR})
+    link_directories(${OPENCV_LIB_DIR})
+
+    SET(OpenCV_LIBRARIES opencv_imgcodecs opencv_features2d opencv_videostab opencv_shape opencv_flann opencv_photo opencv_superres opencv_stitching opencv_video opencv_videoio opencv_ml opencv_core opencv_imgproc opencv_objdetect)
+    SET(OpenCV_FOUND TRUE)
+
+    # opecv_ts is for testing opencv. if it is left in the lib list then we get an error when
+    # the unit test exits.
+    # Centos like os:
+    list(REMOVE_ITEM OPENCV_LIB_DIR "${OPENCV_LIB_DIR_OPT}/libopencv_ts.so")
+    # Ubuntu like os:
+    list(REMOVE_ITEM OPENCV_LIB_DIR opencv_ts)
+else()
+    find_package(OpenCV REQUIRED)
+
+    # opecv_ts is for testing opencv. if it is left in the lib list then we get an error when
+    # the unit test exits.
+    # Centos like os:
+    list(REMOVE_ITEM OpenCV_LIBRARIES "${OpenCV_LIB_DIR_OPT}/libopencv_ts.so")
+    # Ubuntu like os:
+    list(REMOVE_ITEM OpenCV_LIBRARIES opencv_ts)
+
+    include_directories(${OpenCV_INCLUDE_DIRS})
+    link_directories(${OpenCV_LIBRARY_DIRS})
+endif()
 
 find_package(CURL REQUIRED)
 include_directories(${CURL_INCLUDE_DIRS})
@@ -240,5 +311,10 @@ add_subdirectory(examples)
 add_subdirectory(doc)
 include(cmake/clang-format.cmake)
 include(cmake/coverage.cmake)
+
+if (BUILD_OPENCV)
+    add_dependencies(aeon ${LIBJPEGTURBO_PROJECT})
+    add_dependencies(aeon ${OPENCV_PROJECT})
+endif()
 
 print_configuration_summary()
