@@ -146,7 +146,7 @@ if (BUILD_OPENCV)
     SET(OPENCV_PROJECT        "opencv")
     SET(OPENCV_SOURCES_DIR    ${THIRD_PARTY_PATH}/${OPENCV_PROJECT})
     SET(OPENCV_INSTALL_DIR    ${THIRD_PARTY_PATH}/install/${OPENCV_PROJECT})
-    SET(OPENCV_INC_DIR        "${OPENCV_INSTALL_DIR}/include" CACHE PATH "OpenCV include directory." FORCE)
+    SET(OPENCV_INC_DIR        "${OPENCV_INSTALL_DIR}/include/opencv4" CACHE PATH "OpenCV include directory." FORCE)
     SET(OPENCV_LIB_DIR        "${OPENCV_INSTALL_DIR}/lib" CACHE PATH "OpenCV library directory." FORCE)
 
     INCLUDE(ExternalProject)
@@ -168,7 +168,7 @@ if (BUILD_OPENCV)
         SET(JPEG_OUTPUTNAME ${CMAKE_STATIC_LIBRARY_PREFIX}jpeg${CMAKE_STATIC_LIBRARY_SUFFIX})
     endif()
   
-    SET(OpenCV_VERSION "3.4.7")
+    SET(OpenCV_VERSION "4.1.1")
 
     ExternalProject_Add(
         ${OPENCV_PROJECT}
